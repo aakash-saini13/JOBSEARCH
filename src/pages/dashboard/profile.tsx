@@ -35,8 +35,8 @@ export default function Profile() {
         setProfile(updatedProfile);
         updateProfile(updatedProfile, false);
         toast('Resume parsed successfully!', 'success');
-      } catch (error) {
-        toast('Failed to parse resume', 'error');
+      } catch (error: any) {
+        toast(error.message || 'Failed to parse resume', 'error');
       } finally {
         setIsUploading(false);
       }

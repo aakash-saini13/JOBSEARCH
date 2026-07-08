@@ -10,7 +10,8 @@ export async function parseResumeFile(file: File): Promise<Partial<UserProfile>>
   });
 
   if (!response.ok) {
-    throw new Error('Failed to parse resume');
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to parse resume');
   }
 
   const data = await response.json();

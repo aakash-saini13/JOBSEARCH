@@ -10,7 +10,7 @@ router.post('/register', async (req, res) => {
     const { name, email, password } = req.body;
     
     // Check if user exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = await (User as any).findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
@@ -18,7 +18,7 @@ router.post('/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const user = new User({
+    const user = new (User as any)({
       name,
       email,
       password: hashedPassword,
@@ -42,7 +42,7 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    const user = await User.findOne({ email });
+    const user = await (User as any).findOne({ email });
     if (!user) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }

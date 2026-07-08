@@ -25,7 +25,7 @@ router.post('/parse', upload.single('resume'), async (req, res) => {
       const parser = new PDFParse({ data: fileBuffer });
       const pdfResult = await parser.getText();
       await parser.destroy();
-      text = pdfResult.text;
+      text = pdfResult.text || '';
     } else {
       text = fileBuffer.toString('utf-8'); // Naive fallback
     }
@@ -43,7 +43,7 @@ router.post('/parse', upload.single('resume'), async (req, res) => {
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-2.5-flash',
       contents: prompt,
       config: {
         responseMimeType: "application/json",

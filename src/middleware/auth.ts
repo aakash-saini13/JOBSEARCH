@@ -15,7 +15,7 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
 
   try {
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    const user = await User.findById(decoded.userId).select('-password');
+    const user = await (User as any).findById(decoded.userId).select('-password');
     
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
