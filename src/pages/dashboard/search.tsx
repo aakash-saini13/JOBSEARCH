@@ -58,7 +58,7 @@ export default function JobSearch() {
     }
     setIsSearching(true);
     try {
-      const res = await fetch('/api/ai/search-jobs', {
+      const res = await fetch('/api/ai/match-jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, location, filterSalary, filterWorkMode, filterExperience, profile })
@@ -434,8 +434,29 @@ export default function JobSearch() {
             </div>
           </div>
 
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1 min-h-0 overflow-y-auto pb-4 pr-2">
-            {searchResults.map((job, idx) => (
+            {isSearching ? (
+              Array.from({ length: 6 }).map((_, i) => (
+                <Card key={i} className="animate-pulse bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800">
+                  <CardContent className="p-5">
+                    <div className="h-5 bg-gray-200 dark:bg-zinc-700 rounded w-3/4 mb-3"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-1/2 mb-4"></div>
+                    <div className="flex gap-2 mb-4">
+                      <div className="h-6 w-16 bg-gray-200 dark:bg-zinc-700 rounded-full"></div>
+                      <div className="h-6 w-16 bg-gray-200 dark:bg-zinc-700 rounded-full"></div>
+                    </div>
+                    <div className="h-4 bg-gray-200 dark:bg-zinc-700 rounded w-full mt-4"></div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : searchResults.length === 0 ? (
+              <div className="col-span-full text-center text-gray-500 py-12">
+                No jobs found. Try adjusting your search criteria.
+              </div>
+            ) : (
+              searchResults.map((job, idx) => (
+
               <Card 
                 key={job.id} 
                 className={`cursor-pointer transition-all hover:shadow-md ${selectedJobIndex === idx ? 'ring-2 ring-purple-500 border-transparent' : 'border-gray-200 dark:border-zinc-800'} ${job.isFakeJob ? 'bg-red-50/30 dark:bg-red-900/10' : ''}`}
@@ -466,7 +487,8 @@ export default function JobSearch() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            ))
+            )}
           </div>
         </div>
       </div>
