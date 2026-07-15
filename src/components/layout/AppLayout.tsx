@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router';
-import { LayoutDashboard, Briefcase, FileText, Mail, Settings, UserCircle, Search, Menu, Bell } from 'lucide-react';
+import { LayoutDashboard, Briefcase, FileText, Mail, Settings, UserCircle, Search, Menu, Bell, Users, LineChart } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
@@ -18,6 +18,8 @@ export default function AppLayout() {
     { name: 'My Applications', href: '/dashboard/applications', icon: Briefcase },
     { name: 'Resume Builder', href: '/dashboard/resume', icon: FileText },
     { name: 'Email Outreach', href: '/dashboard/emails', icon: Mail },
+    { name: 'Networking', href: '/dashboard/networking', icon: Users },
+    { name: 'Analytics', href: '/dashboard/analytics', icon: LineChart },
   ];
 
   return (
@@ -80,19 +82,50 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-4 ml-auto">
-            <Button variant="ghost" size="icon" className="text-gray-500 rounded-full">
-              <Bell size={20} />
-            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger className="relative flex h-10 w-10 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors">
+                <Bell size={20} />
+                <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-zinc-900"></span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80 p-0">
+                <div className="p-4 border-b border-gray-100 dark:border-zinc-800 font-medium flex justify-between items-center">
+                  <span>Notifications</span>
+                  <span className="text-xs text-purple-600 dark:text-purple-400 cursor-pointer hover:underline">Mark all as read</span>
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  <div className="p-4 border-b border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-900 transition-colors">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">AI Match Alert</p>
+                    <p className="text-xs text-gray-500 mt-1">3 new jobs matched your profile at 90% or higher.</p>
+                    <p className="text-xs text-gray-400 mt-2">10 mins ago</p>
+                  </div>
+                  <div className="p-4 border-b border-gray-100 dark:border-zinc-800 hover:bg-gray-50 dark:hover:bg-zinc-900 transition-colors">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">RPA Bot Completed</p>
+                    <p className="text-xs text-gray-500 mt-1">Successfully applied to 5 jobs automatically.</p>
+                    <p className="text-xs text-gray-400 mt-2">2 hours ago</p>
+                  </div>
+                  <div className="p-4 hover:bg-gray-50 dark:hover:bg-zinc-900 transition-colors">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Resume Optimized</p>
+                    <p className="text-xs text-gray-500 mt-1">Your tailored resume for Google has been generated.</p>
+                    <p className="text-xs text-gray-400 mt-2">Yesterday</p>
+                  </div>
+                </div>
+                <div className="p-3 border-t border-gray-100 dark:border-zinc-800 text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-zinc-900 transition-colors text-sm text-purple-600 font-medium">
+                  View all
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             
             <DropdownMenu>
               <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-full bg-gray-100 dark:bg-zinc-800 w-10 h-10 hover:bg-gray-200 dark:hover:bg-zinc-700 transition-colors">
                 <UserCircle size={24} className="text-gray-600 dark:text-gray-400" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem render={<Link to="/dashboard/profile" className="w-full cursor-pointer" />}>
+                <DropdownMenuItem render={<Link to="/dashboard/profile" />}>
                   Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem render={<Link to="/dashboard/settings" className="w-full cursor-pointer" />}>
+                <DropdownMenuItem render={<Link to="/dashboard/settings" />}>
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuItem 

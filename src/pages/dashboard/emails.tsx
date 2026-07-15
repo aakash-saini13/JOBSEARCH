@@ -1,121 +1,303 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { Mail, Settings, Edit3, Send, CheckCircle2, User, RefreshCw, FileText, Sparkles } from 'lucide-react';
+import { Mail, Settings, Edit3, Send, CheckCircle2, User, RefreshCw, FileText, Sparkles, Loader2, Paperclip, BarChart, CalendarClock, Target } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { useUser } from '../../context/UserContext';
+import { useToast } from '../../context/ToastContext';
+import { useSearchParams } from 'react-router';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
 
 export default function Automations() {
+  const { profile, applications, updateApplication } = useUser();
+  const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [companyName, setCompanyName] = useState(searchParams.get('company') || '');
+  const [managerName, setManagerName] = useState('');
+  const [contactInfo, setContactInfo] = useState('');
+  const [contactType, setContactType] = useState<'email' | 'phone'>('email');
+  const [isWhatsApp, setIsWhatsApp] = useState(false);
+  const [tone, setTone] = useState('Professional & Direct');
+  const [applicationStatus, setApplicationStatus] = useState(searchParams.get('status') || 'Recently Applied');
+  const [generatedEmail, setGeneratedEmail] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [jobUrl, setJobUrl] = useState('');
+  const [isAutoFetching, setIsAutoFetching] = useState(false);
+
+  const [activeTab, setActiveTab] = useState(searchParams.get('company') ? 'draft' : 'campaigns');
+  
+  useEffect(() => {
+    const isPhone = /^[+\d\s\-\(\)]+$/.test(contactInfo) && contactInfo.replace(/\D/g, '').length >= 7;
+    setContactType(isPhone ? 'phone' : 'email');
+    setIsWhatsApp(isPhone);
+  }, [contactInfo]);
+
+
+  useEffect(() => {
+    if (searchParams.get('company')) {
+      toast(`Ready to draft email for ${searchParams.get('company')}`, 'success');
+      setActiveTab('draft');
+    }
+  }, [searchParams]);
+
+  const handleAutoFetch = async () => {
+    if (!jobUrl) return toast('Please enter a job link.', 'error');
+    setIsAutoFetching(true);
+    try {
+      const response = await fetch('/api/ai/auto-fetch-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobUrl, userProfile: profile }),
+      });
+      if (!response.ok) throw new Error('Failed to auto fetch');
+      const data = await response.json();
+      setCompanyName(data.companyName || '');
+      setManagerName(data.managerName || '');
+      setContactInfo(data.hrEmail || '');
+      setGeneratedEmail(data.emailDraft || '');
+      toast('Extracted details and drafted email!', 'success');
+    } catch (error) {
+      toast('Failed to extract email info.', 'error');
+    } finally {
+      setIsAutoFetching(false);
+    }
+  };
+
+  const generateEmail = async () => {
+    setIsGenerating(true);
+    try {
+      const response = await fetch('/api/ai/generate-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyName, managerName, contactInfo, contactType, tone, userProfile: profile, applicationStatus }),
+      });
+      if (!response.ok) throw new Error('Failed to generate email');
+      const data = await response.json();
+      setGeneratedEmail(data.email);
+      toast('Draft generated successfully', 'success');
+    } catch (error) {
+      toast('Failed to generate email draft. Check API Key.', 'error');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!contactInfo) return toast('Please provide an HR/Manager contact.', 'error');
+    if (isWhatsApp) {
+      const cleanPhone = contactInfo.replace(/\D/g, '');
+      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(generatedEmail)}`, '_blank');
+      return;
+    }
+    if (!generatedEmail) return toast('Please generate or write an email first.', 'error');
+    
+    setIsSending(true);
+    try {
+      const { cachedAccessToken } = await import('../../lib/firebase');
+      if (!cachedAccessToken) {
+        toast('Please login with Google to send emails directly via Gmail.', 'error');
+        setIsSending(false);
+        return;
+      }
+      
+      const response = await fetch('/api/gmail/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${cachedAccessToken}` },
+        body: JSON.stringify({
+          to: contactInfo,
+          subject: `Following up - ${profile.name}`,
+          message: generatedEmail + `<br><br>---<br>This email is generated by a web application that was created by Aakash Saini.`
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to send email');
+      
+      toast('Email sent successfully via Gmail API!', 'success');
+      
+      const appToUpdate = applications.find(a => a.company === companyName);
+      if (appToUpdate) {
+        await updateApplication(appToUpdate.id, { status: 'follow-up sent', nextStep: 'Wait for reply' });
+      }
+    } catch (error) {
+      toast('Failed to send email. Check console.', 'error');
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const enableSmartFollowUp = () => {
+    toast('Smart Follow-up activated: AI will monitor and send follow-ups after 7 days of inactivity.', 'success');
+  };
+
   return (
     <div className="space-y-6 h-full flex flex-col">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Email Outreach & AI Automation</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-1">Manage your automated follow-ups, AI cover letters, and email campaigns.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Cold Emails & Sequences</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage campaigns, drip sequences, and smart follow-ups.</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-none shadow-sm bg-white dark:bg-zinc-900 col-span-2">
-          <CardHeader>
-            <CardTitle>Active Campaigns</CardTitle>
-            <CardDescription>Currently running automated email sequences.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {[
-                { name: 'Senior Dev Roles - SF', status: 'Running', sent: 45, replied: 12, rate: '26%' },
-                { name: 'AI Startups Remote', status: 'Paused', sent: 120, replied: 34, rate: '28%' },
-              ].map((campaign, i) => (
-                <div key={i} className="flex items-center justify-between p-4 border border-gray-100 dark:border-zinc-800 rounded-lg">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-gray-900 dark:text-gray-100">{campaign.name}</h4>
-                      <Badge variant={campaign.status === 'Running' ? 'default' : 'secondary'} className={campaign.status === 'Running' ? 'bg-green-500 hover:bg-green-600' : ''}>
-                        {campaign.status}
-                      </Badge>
-                    </div>
-                    <div className="text-sm text-gray-500 flex gap-4">
-                      <span>Sent: {campaign.sent}</span>
-                      <span>Replies: {campaign.replied}</span>
-                      <span className="text-green-600 font-medium">Reply Rate: {campaign.rate}</span>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">Manage</Button>
-                </div>
-              ))}
+      <Card className="border border-gray-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm flex-1 min-h-0 flex flex-col">
+        <CardContent className="p-0 h-full flex flex-col min-h-0">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+            <div className="border-b border-gray-200 dark:border-zinc-800 px-6 py-2">
+              <TabsList className="bg-transparent space-x-2">
+                <TabsTrigger value="campaigns" className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 dark:data-[state=active]:bg-purple-900/20 dark:data-[state=active]:text-purple-400">Campaign Manager</TabsTrigger>
+                <TabsTrigger value="sequences" className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 dark:data-[state=active]:bg-purple-900/20 dark:data-[state=active]:text-purple-400">Smart Follow-ups</TabsTrigger>
+                <TabsTrigger value="draft" className="data-[state=active]:bg-purple-50 data-[state=active]:text-purple-700 dark:data-[state=active]:bg-purple-900/20 dark:data-[state=active]:text-purple-400">Single Email Drafter</TabsTrigger>
+              </TabsList>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm bg-white dark:bg-zinc-900">
-          <CardHeader>
-            <CardTitle>Generate Artifacts</CardTitle>
-            <CardDescription>Use AI to craft tailored documents.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button className="w-full justify-start gap-3" variant="outline">
-              <FileText size={18} className="text-blue-500" />
-              Tailor Resume for Job
-            </Button>
-            <Button className="w-full justify-start gap-3" variant="outline">
-              <Edit3 size={18} className="text-purple-500" />
-              Write Cover Letter
-            </Button>
-            <Button className="w-full justify-start gap-3" variant="outline">
-              <Mail size={18} className="text-orange-500" />
-              Draft Cold Email to HR
-            </Button>
-            <Button className="w-full justify-start gap-3" variant="outline">
-              <RefreshCw size={18} className="text-green-500" />
-              Schedule 7-Day Follow-up
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-      
-      <Card className="border-none shadow-sm bg-white dark:bg-zinc-900 flex-1">
-        <CardHeader>
-          <CardTitle>AI Email Generator</CardTitle>
-          <CardDescription>Generate hyper-personalized emails based on the company and hiring manager.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="draft">
-            <TabsList className="mb-4">
-              <TabsTrigger value="draft">Draft New Email</TabsTrigger>
-              <TabsTrigger value="templates">Templates</TabsTrigger>
-              <TabsTrigger value="settings">SMTP Settings</TabsTrigger>
-            </TabsList>
-            <TabsContent value="draft" className="space-y-4">
-               <div className="grid grid-cols-2 gap-4">
-                 <div className="space-y-4 border-r border-gray-100 dark:border-zinc-800 pr-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Company Name</label>
-                      <input className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" placeholder="e.g. OpenAI" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">HR / Manager Name (Optional)</label>
-                      <input className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" placeholder="e.g. Sam Altman" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Tone</label>
-                      <select className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-                        <option>Professional & Direct</option>
-                        <option>Enthusiastic & Passionate</option>
-                        <option>Short & Impactful</option>
-                      </select>
-                    </div>
-                    <Button className="w-full gap-2"><Sparkles size={16} /> Generate with AI</Button>
+            
+            <TabsContent value="campaigns" className="flex-1 min-h-0 p-6 m-0 overflow-y-auto">
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                 <div className="p-4 border rounded-xl bg-gray-50 dark:bg-zinc-950 flex flex-col gap-2">
+                   <div className="text-gray-500 text-sm font-medium flex items-center gap-2"><Target size={16}/> Active Campaigns</div>
+                   <div className="text-3xl font-bold">2</div>
                  </div>
-                 <div className="pl-2 flex flex-col">
-                    <label className="text-sm font-medium mb-2">Generated Output</label>
-                    <textarea 
-                      className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 flex-1 resize-none" 
-                      placeholder="AI generated email will appear here..."
-                      readOnly
-                    />
-                    <div className="flex justify-end gap-2 mt-4">
-                      <Button variant="outline">Copy</Button>
-                      <Button className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"><Send size={16} /> Send Email</Button>
+                 <div className="p-4 border rounded-xl bg-gray-50 dark:bg-zinc-950 flex flex-col gap-2">
+                   <div className="text-gray-500 text-sm font-medium flex items-center gap-2"><Mail size={16}/> Emails Sent</div>
+                   <div className="text-3xl font-bold">145</div>
+                 </div>
+                 <div className="p-4 border rounded-xl bg-gray-50 dark:bg-zinc-950 flex flex-col gap-2">
+                   <div className="text-gray-500 text-sm font-medium flex items-center gap-2"><BarChart size={16}/> Open Rate</div>
+                   <div className="text-3xl font-bold text-green-600">42%</div>
+                 </div>
+               </div>
+               
+               <h3 className="font-semibold mb-4 text-lg">Drip Campaigns</h3>
+               <Card className="mb-4">
+                 <CardContent className="p-4 flex items-center justify-between">
+                   <div>
+                     <h4 className="font-semibold text-purple-700 dark:text-purple-400">Founder Outreach - Tech Startups</h4>
+                     <p className="text-sm text-gray-500">3-step sequence • 45 prospects • 68% open rate</p>
+                   </div>
+                   <Badge className="bg-green-100 text-green-700">Active</Badge>
+                 </CardContent>
+               </Card>
+               <Card>
+                 <CardContent className="p-4 flex items-center justify-between">
+                   <div>
+                     <h4 className="font-semibold text-gray-700 dark:text-gray-300">Engineering Managers - SF</h4>
+                     <p className="text-sm text-gray-500">2-step sequence • 100 prospects • 24% open rate</p>
+                   </div>
+                   <Badge variant="outline">Paused</Badge>
+                 </CardContent>
+               </Card>
+               
+               <Button className="mt-6 gap-2" variant="outline"><Sparkles size={16}/> Generate New Campaign List</Button>
+            </TabsContent>
+
+            <TabsContent value="sequences" className="flex-1 min-h-0 p-6 m-0 overflow-y-auto">
+              <div className="max-w-2xl">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold mb-1">Smart 7-Day Follow-ups</h3>
+                    <p className="text-gray-500 text-sm">Automatically follow up if no reply is received after 7 days.</p>
+                  </div>
+                  <Button onClick={enableSmartFollowUp} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"><CalendarClock size={16}/> Enable Global Follow-ups</Button>
+                </div>
+                
+                <div className="space-y-4">
+                  {applications.filter(a => a.status === 'applied').slice(0, 5).map(app => (
+                    <div key={app.id} className="p-4 border border-gray-200 dark:border-zinc-800 rounded-lg flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-gray-900 dark:text-gray-100">{app.role} at {app.company}</div>
+                        <div className="text-xs text-gray-500">Applied: {app.applied} • Waiting for response</div>
+                      </div>
+                      <Badge variant="outline" className="text-orange-600 border-orange-200 bg-orange-50">Queued for Day 7</Badge>
                     </div>
+                  ))}
+                  {applications.filter(a => a.status === 'applied').length === 0 && (
+                    <p className="text-gray-500 text-sm">No recently applied jobs pending follow-up.</p>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="draft" className="flex-1 min-h-0 p-0 m-0 overflow-hidden flex flex-col md:flex-row">
+               <div className="w-full md:w-80 border-r border-gray-200 dark:border-zinc-800 p-4 flex flex-col gap-4 overflow-y-auto bg-gray-50 dark:bg-zinc-950/30">
+                 <div>
+                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Smart Auto-Fetch</h3>
+                   <div className="space-y-2">
+                     <input 
+                       className="w-full text-sm p-2 border rounded-md dark:bg-zinc-900 dark:border-zinc-800" 
+                       placeholder="Paste Job URL..." 
+                       value={jobUrl}
+                       onChange={e => setJobUrl(e.target.value)}
+                     />
+                     <Button className="w-full text-xs" variant="secondary" onClick={handleAutoFetch} disabled={isAutoFetching}>
+                       {isAutoFetching ? <Loader2 className="animate-spin mr-2 h-3 w-3" /> : <Sparkles className="mr-2 h-3 w-3 text-purple-500" />}
+                       Auto-Fetch Info
+                     </Button>
+                   </div>
+                 </div>
+                 
+                 <div className="border-t border-gray-200 dark:border-zinc-800 pt-4">
+                   <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Manual Generation</h3>
+                   <div className="space-y-3 text-sm">
+                     <div className="space-y-1">
+                       <Label className="text-xs">Company Name</Label>
+                       <Input value={companyName} onChange={e => setCompanyName(e.target.value)} />
+                     </div>
+                     <div className="space-y-1">
+                       <Label className="text-xs">HR / Manager Contact (Email or Phone)</Label>
+                       <Input placeholder="name@company.com or +1234567890" value={contactInfo} onChange={e => setContactInfo(e.target.value)} />
+                       {isWhatsApp && <span className="text-[10px] text-green-600 font-medium">WhatsApp Number Detected</span>}
+                     </div>
+                     <div className="space-y-1">
+                       <Label className="text-xs">Context / Status</Label>
+                       <select 
+                         className="w-full p-2 border rounded-md dark:bg-zinc-900 dark:border-zinc-800"
+                         value={applicationStatus}
+                         onChange={e => setApplicationStatus(e.target.value)}
+                       >
+                         <option>Recently Applied</option>
+                         <option>Follow up (1 week no reply)</option>
+                         <option>Thank you (Post-Interview)</option>
+                         <option>Cold Outreach (Not applied yet)</option>
+                       </select>
+                     </div>
+                     <Button className="w-full mt-2" onClick={generateEmail} disabled={isGenerating}>
+                       {isGenerating ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Sparkles className="mr-2 h-4 w-4 text-purple-500" />}
+                       Generate Draft
+                     </Button>
+                   </div>
+                 </div>
+               </div>
+               
+               <div className="flex-1 p-6 flex flex-col min-h-0 bg-white dark:bg-zinc-900">
+                 <div className="flex justify-between items-center mb-4">
+                   <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                     <Edit3 size={18} className="text-gray-400" /> Draft Content
+                   </h2>
+                 </div>
+                 
+                 <div className="flex-1 relative flex flex-col min-h-0">
+                   <textarea
+                     className="w-full flex-1 p-4 border border-gray-200 dark:border-zinc-800 rounded-lg resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-gray-50 dark:bg-zinc-950 text-gray-700 dark:text-gray-300 leading-relaxed font-sans"
+                     placeholder="Your email draft will appear here..."
+                     value={generatedEmail}
+                     onChange={(e) => setGeneratedEmail(e.target.value)}
+                   />
+                   
+                   <div className="mt-4 flex items-center justify-between">
+                     <p className="text-xs text-gray-500 flex items-center gap-1">
+                       <Sparkles size={12} className="text-purple-500" /> AI generated drafts should be reviewed before sending.
+                     </p>
+                     <Button 
+                       className="gap-2 bg-purple-600 hover:bg-purple-700 text-white" 
+                       onClick={handleSendEmail}
+                       disabled={isSending || !generatedEmail}
+                     >
+                       {isSending ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
+                       {isWhatsApp ? 'Send via WhatsApp' : (isSending ? 'Sending via Gmail API...' : 'Send via Gmail')}
+                     </Button>
+                   </div>
                  </div>
                </div>
             </TabsContent>

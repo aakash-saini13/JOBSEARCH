@@ -52,6 +52,7 @@ router.post('/parse', upload.single('resume'), async (req, res) => {
           properties: {
             name: { type: Type.STRING },
             email: { type: Type.STRING },
+            phone: { type: Type.STRING, description: "Phone number of the candidate" },
             title: { type: Type.STRING },
             location: { type: Type.STRING },
             linkedin: { type: Type.STRING },
@@ -62,7 +63,7 @@ router.post('/parse', upload.single('resume'), async (req, res) => {
               items: { type: Type.STRING }
             }
           },
-          required: ["name", "email", "title", "location", "linkedin", "github", "summary", "skills"]
+          required: ["name", "email", "phone", "title", "location", "linkedin", "github", "summary", "skills"]
         }
       }
     });

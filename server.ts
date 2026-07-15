@@ -5,10 +5,13 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import { initCronJobs } from "./src/api/cron.js";
+
 import authRoutes from "./src/api/auth.js";
 import jobRoutes from "./src/api/jobs.js";
 import aiRoutes from "./src/api/ai.js";
 import resumeRoutes from "./src/api/resume.js";
+import gmailRoutes from "./src/api/gmail.js";
 
 dotenv.config();
 
@@ -51,6 +54,7 @@ async function startServer() {
   app.use("/api/jobs", jobRoutes);
   app.use("/api/ai", aiRoutes);
   app.use("/api/resume", resumeRoutes);
+  app.use("/api/gmail", gmailRoutes);
 
   app.get("/api/health", (req, res) => {
     res.json({ 
@@ -75,11 +79,12 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*all", (req, res) => {
+    app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
+  initCronJobs();
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });

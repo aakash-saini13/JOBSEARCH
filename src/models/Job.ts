@@ -26,6 +26,8 @@ const jobSchema = new mongoose.Schema({
     default: 'saved',
   },
   appliedDate: Date,
+  outreachAttempted: Boolean,
+  outreachType: String,
   hrContact: {
     name: String,
     email: String,

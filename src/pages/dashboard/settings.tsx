@@ -1,31 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, RefreshCw } from 'lucide-react';
 import { useUser } from '../../context/UserContext';
 import { useToast } from '../../context/ToastContext';
+import MainAccountView from '../../components/auth/MainAccountView';
 
 export default function Settings() {
-  const { profile, updateProfile } = useUser();
+  const { profile, updateProfile, firebaseUser } = useUser();
   const { toast } = useToast();
   
-  const [googleConnected, setGoogleConnected] = useState(false);
+  const [preferences, setPreferences] = useState({
+    emailAlerts: profile.preferences?.emailAlerts ?? true,
+    browserNotifications: profile.preferences?.browserNotifications ?? true,
+    googleCalendar: profile.preferences?.googleCalendar ?? false,
+  });
+
   const [linkedinConnected, setLinkedinConnected] = useState(false);
-  const [formData, setFormData] = useState({ name: profile.name, email: profile.email });
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    setFormData({ name: profile.name, email: profile.email });
-  }, [profile]);
+    if (profile.preferences) {
+      setPreferences({
+        emailAlerts: profile.preferences.emailAlerts,
+        browserNotifications: profile.preferences.browserNotifications,
+        googleCalendar: profile.preferences.googleCalendar,
+      });
+    }
+  }, [profile.preferences]);
 
-  const handleSaveAccount = () => {
-    updateProfile(formData);
+  const handleTogglePreference = (key: keyof typeof preferences) => {
+    const newPreferences = { ...preferences, [key]: !preferences[key] };
+    setPreferences(newPreferences);
+    updateProfile({ preferences: newPreferences }, false);
+    toast(`Preference updated`, 'success');
   };
 
+  const isGoogleAuth = firebaseUser?.providerData.some(p => p.providerId === 'google.com');
+
   return (
-    <div className="space-y-6 h-full flex flex-col">
+    <div className="space-y-6 h-full flex flex-col pb-10">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Settings</h1>
         <p className="text-gray-500 dark:text-gray-400 mt-1">Manage your account settings and preferences.</p>
@@ -39,41 +54,7 @@ export default function Settings() {
         </TabsList>
         
         <TabsContent value="account" className="space-y-4 mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
-              <CardDescription>Update your personal details here.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
-              </div>
-              <Button onClick={handleSaveAccount}>Save Changes</Button>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Password</CardTitle>
-              <CardDescription>Change your password.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="current">Current Password</Label>
-                <Input id="current" type="password" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="new">New Password</Label>
-                <Input id="new" type="password" />
-              </div>
-              <Button>Update Password</Button>
-            </CardContent>
-          </Card>
+          <MainAccountView />
         </TabsContent>
         
         <TabsContent value="notifications" className="space-y-4 mt-4">
@@ -82,20 +63,31 @@ export default function Settings() {
               <CardTitle>Notification Preferences</CardTitle>
               <CardDescription>Choose what updates you want to receive.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-medium">Email Alerts</h4>
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100">Email Alerts</h4>
                   <p className="text-sm text-gray-500">Receive emails about job matches and interview reminders.</p>
                 </div>
-                <input type="checkbox" defaultChecked className="toggle" />
+                <div 
+                  className={`w-12 h-6 rounded-full cursor-pointer transition-colors flex items-center px-1 ${preferences.emailAlerts ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+                  onClick={() => handleTogglePreference('emailAlerts')}
+                >
+                  <div className={`w-4 h-4 bg-white rounded-full transition-transform ${preferences.emailAlerts ? 'translate-x-6' : 'translate-x-0'}`} />
+                </div>
               </div>
+
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-medium">Browser Notifications</h4>
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100">Browser Notifications</h4>
                   <p className="text-sm text-gray-500">Get pop-up notifications for important events.</p>
                 </div>
-                <input type="checkbox" defaultChecked className="toggle" />
+                <div 
+                  className={`w-12 h-6 rounded-full cursor-pointer transition-colors flex items-center px-1 ${preferences.browserNotifications ? 'bg-purple-600' : 'bg-gray-300 dark:bg-gray-700'}`}
+                  onClick={() => handleTogglePreference('browserNotifications')}
+                >
+                  <div className={`w-4 h-4 bg-white rounded-full transition-transform ${preferences.browserNotifications ? 'translate-x-6' : 'translate-x-0'}`} />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -105,31 +97,36 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle>Third-Party Integrations</CardTitle>
-              <CardDescription>Connect external services.</CardDescription>
+              <CardDescription>Connect external services to enhance your experience.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between border-b pb-4">
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between border-b pb-4 border-gray-100 dark:border-gray-800">
                 <div>
-                  <h4 className="font-medium">Google Calendar</h4>
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100">Google Calendar</h4>
                   <p className="text-sm text-gray-500">Sync interviews with your calendar.</p>
+                  {!isGoogleAuth && (
+                    <p className="text-xs text-orange-500 mt-1">Requires Google Sign-in to enable Calendar integration.</p>
+                  )}
                 </div>
                 <Button 
-                  variant={googleConnected ? "secondary" : "outline"}
-                  onClick={() => setGoogleConnected(!googleConnected)}
-                  className={googleConnected ? "text-green-600 bg-green-50 border-green-200" : ""}
+                  variant={preferences.googleCalendar ? "secondary" : "outline"}
+                  onClick={() => handleTogglePreference('googleCalendar')}
+                  disabled={!isGoogleAuth}
+                  className={preferences.googleCalendar ? "text-green-600 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-900/50" : ""}
                 >
-                  {googleConnected ? <><CheckCircle2 className="mr-2 h-4 w-4" /> Connected</> : "Connect"}
+                  {preferences.googleCalendar ? <><CheckCircle2 className="mr-2 h-4 w-4" /> Connected</> : "Connect"}
                 </Button>
               </div>
-              <div className="flex items-center justify-between pt-2">
+
+              <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-medium">LinkedIn</h4>
-                  <p className="text-sm text-gray-500">Import your profile and experience.</p>
+                  <h4 className="font-medium text-gray-900 dark:text-gray-100">LinkedIn</h4>
+                  <p className="text-sm text-gray-500">Import your profile and automate connection requests.</p>
                 </div>
                 <Button 
                   variant={linkedinConnected ? "secondary" : "outline"}
                   onClick={() => setLinkedinConnected(!linkedinConnected)}
-                  className={linkedinConnected ? "text-green-600 bg-green-50 border-green-200" : ""}
+                  className={linkedinConnected ? "text-green-600 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-900/50" : ""}
                 >
                   {linkedinConnected ? <><CheckCircle2 className="mr-2 h-4 w-4" /> Connected</> : "Connect"}
                 </Button>
