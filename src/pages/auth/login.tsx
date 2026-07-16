@@ -44,6 +44,35 @@ export default function Login() {
     }
   };
 
+  const getErrorMessage = (error: any) => {
+    const code = error?.code || '';
+    const msg = error?.message || '';
+    
+    if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+      return "Domain not authorized. Please add this URL to Firebase Console > Authentication > Settings > Authorized domains.";
+    }
+    if (code === 'auth/popup-closed-by-user' || msg.includes('popup-closed-by-user')) {
+      return "Sign in was cancelled.";
+    }
+    if (code === 'auth/invalid-phone-number' || msg.includes('invalid-phone-number')) {
+      return "Invalid phone number. Please include the country code (e.g., +1234567890).";
+    }
+    if (code === 'auth/too-many-requests' || msg.includes('too-many-requests')) {
+      return "Too many attempts. Please try again later.";
+    }
+    if (code === 'auth/invalid-verification-code' || msg.includes('invalid-verification-code')) {
+      return "The verification code is incorrect.";
+    }
+    if (code === 'auth/invalid-api-key' || msg.includes('invalid-api-key')) {
+      return "Firebase API Key is invalid. Check your Firebase configuration.";
+    }
+    if (code === 'auth/configuration-not-found' || msg.includes('configuration-not-found')) {
+      return "Firebase Auth provider is not enabled in the Firebase Console.";
+    }
+    
+    return msg || "Authentication failed. Please try again.";
+  };
+
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
@@ -58,7 +87,8 @@ export default function Login() {
         navigate('/dashboard');
       }
     } catch (error: any) {
-      toast(error.message || "Failed to sign in", "error");
+      console.error('Google Login Error:', error);
+      toast(getErrorMessage(error), "error");
     } finally {
       setIsLoading(false);
     }
@@ -74,8 +104,8 @@ export default function Login() {
       setConfirmationResult(confirmation);
       toast("Verification code sent", "success");
     } catch (error: any) {
-      console.error(error);
-      toast(error.message || "Failed to send code", "error");
+      console.error('Phone Send Code Error:', error);
+      toast(getErrorMessage(error), "error");
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +122,8 @@ export default function Login() {
         navigate('/dashboard');
       }
     } catch (error: any) {
-      toast(error.message || "Invalid code", "error");
+      console.error('Phone Verify Error:', error);
+      toast(getErrorMessage(error), "error");
     } finally {
       setIsLoading(false);
     }
